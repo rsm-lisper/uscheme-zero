@@ -1,6 +1,11 @@
-/* uLisp Zero 1.1 - www.ulisp.com
-   David Johnson-Davies - www.technoblogy.com - 18th May 2017
+// -*- mode: c++ -*-
 
+/* uScheme Zero - experimental
+   Rafał Marek - lisper.pl - 06.2019
+
+   Licensed under the MIT license: https://opensource.org/licenses/MIT
+
+   Based on uLisp Zero 1.1 by David Johnson-Davies - www.technoblogy.com - 18th May 2017
    Licensed under the MIT license: https://opensource.org/licenses/MIT
 */
 
@@ -32,8 +37,8 @@
 enum type { ZERO=0, SYMBOL=2, PAIR=4 };  // PAIR must be last
 enum token { UNUSED, BRA, KET, QUO, DOT };
 
-enum function { SYMBOLS, NIL, TEE, LAMBDA, SPECIAL_FORMS, QUOTE, DEFUN, DEFVAR, SETQ, IF, FUNCTIONS, NOT,
-NULLFN, CONS, ATOM, LISTP, CONSP, SYMBOLP, EQ, CAR, CDR, EVAL, GLOBALS, LOCALS, ENDFUNCTIONS };
+enum function { SYMBOLS, NIL, TEE, NEE, LAMBDA, SPECIAL_FORMS, QUOTE, DEFINE, SET, IF, FUNCTIONS, NOT,
+NULLP, CONS, ATOM, LISTP, PAIRP, SYMBOLP, EQ, CAR, CDR, EVAL, GLOBALS, LOCALS, ENDFUNCTIONS };
 
 // Typedefs
 
@@ -88,6 +93,7 @@ volatile char Escape = 0;
 
 // Forward references
 object *tee;
+object *nee;
 void error (PGM_P string);
 void pfstring (PGM_P s);
 
@@ -164,6 +170,7 @@ void sweep () {
 
 void gc (object *form, object *env) {
   markobject(tee); 
+  markobject(nee); 
   markobject(GlobalEnv);
   markobject(GCStack);
   markobject(form);
@@ -191,7 +198,7 @@ void error2 (object *symbol, PGM_P string) {
 
 // Helper functions
 
-boolean consp (object *x) {
+boolean pairp (object *x) {
   if (x == NULL) return false;
   unsigned int type = x->type;
   return type >= PAIR || type == ZERO;
@@ -343,18 +350,7 @@ object *sp_quote (object *args, object *env) {
   return first(args);
 }
 
-object *sp_defun (object *args, object *env) {
-  (void) env;
-  object *var = first(args);
-  if (!symbolp(var)) error2(var, PSTR("is not a symbol"));
-  object *val = cons(symbol(LAMBDA), cdr(args));
-  object *pair = value(var->name,GlobalEnv);
-  if (pair != NULL) { cdr(pair) = val; return var; }
-  push(cons(var, val), GlobalEnv);
-  return var;
-}
-
-object *sp_defvar (object *args, object *env) {
+object *sp_define (object *args, object *env) {
   object *var = first(args);
   if (!symbolp(var)) error2(var, PSTR("is not a symbol"));
   object *val = eval(second(args), env);
@@ -364,7 +360,7 @@ object *sp_defvar (object *args, object *env) {
   return var;
 }
 
-object *sp_setq (object *args, object *env) {
+object *sp_set (object *args, object *env) {
   object *arg = eval(second(args), env);
   object *pair = findvalue(first(args), env);
   cdr(pair) = arg;
@@ -372,15 +368,15 @@ object *sp_setq (object *args, object *env) {
 }
 
 object *sp_if (object *args, object *env) {
-  if (eval(first(args), env) != nil) return eval(second(args), env);
-  return eval(third(args), env);
+  if (eq(eval(first(args), env), nee)) return eval(third(args), env);
+  return eval(second(args), env);
 }
 
 // Core functions
 
 object *fn_not (object *args, object *env) {
   (void) env;
-  return (first(args) == nil) ? tee : nil;
+  return (first(args) == nil) ? tee : nee;
 }
 
 object *fn_cons (object *args, object *env) {
@@ -390,27 +386,27 @@ object *fn_cons (object *args, object *env) {
 
 object *fn_atom (object *args, object *env) {
   (void) env;
-  return atom(first(args)) ? tee : nil;
+  return atom(first(args)) ? tee : nee;
 }
 
 object *fn_listp (object *args, object *env) {
   (void) env;
-  return listp(first(args)) ? tee : nil;
+  return listp(first(args)) ? tee : nee;
 }
 
-object *fn_consp (object *args, object *env) {
+object *fn_pairp (object *args, object *env) {
   (void) env;
-  return consp(first(args)) ? tee : nil;
+  return pairp(first(args)) ? tee : nee;
 }
 
 object *fn_symbolp (object *args, object *env) {
   (void) env;
-  return symbolp(first(args)) ? tee : nil;
+  return symbolp(first(args)) ? tee : nee;
 }
 
 object *fn_eq (object *args, object *env) {
   (void) env;
-  return eq(first(args), second(args)) ? tee : nil;
+  return eq(first(args), second(args)) ? tee : nee;
 }
 
 // List functions
@@ -446,24 +442,24 @@ object *fn_locals (object *args, object *env) {
 // Built-in procedure names - stored in PROGMEM
 
 const char string0[] PROGMEM = "symbols";
-const char string1[] PROGMEM = "nil";
-const char string2[] PROGMEM = "t";
-const char string3[] PROGMEM = "lambda";
-const char string4[] PROGMEM = "special_forms";
-const char string5[] PROGMEM = "quote";
-const char string6[] PROGMEM = "defun";
-const char string7[] PROGMEM = "defvar";
-const char string8[] PROGMEM = "setq";
+const char string1[] PROGMEM = "()";
+const char string2[] PROGMEM = "#t";
+const char string3[] PROGMEM = "#f";
+const char string4[] PROGMEM = "lambda";
+const char string5[] PROGMEM = "special_forms";
+const char string6[] PROGMEM = "quote";
+const char string7[] PROGMEM = "define";
+const char string8[] PROGMEM = "set!";
 const char string9[] PROGMEM = "if";
 const char string10[] PROGMEM = "functions";
 const char string11[] PROGMEM = "not";
-const char string12[] PROGMEM = "null";
+const char string12[] PROGMEM = "null?";
 const char string13[] PROGMEM = "cons";
-const char string14[] PROGMEM = "atom";
-const char string15[] PROGMEM = "listp";
-const char string16[] PROGMEM = "consp";
-const char string17[] PROGMEM = "symbolp";
-const char string18[] PROGMEM = "eq";
+const char string14[] PROGMEM = "atom?";
+const char string15[] PROGMEM = "list?";
+const char string16[] PROGMEM = "pair?";
+const char string17[] PROGMEM = "symbol?";
+const char string18[] PROGMEM = "eq?";
 const char string19[] PROGMEM = "car";
 const char string20[] PROGMEM = "cdr";
 const char string21[] PROGMEM = "eval";
@@ -473,13 +469,13 @@ const char string23[] PROGMEM = "locals";
 const tbl_entry_t lookup_table[] PROGMEM = {
   { string0, NULL, NIL, NIL },
   { string1, NULL, 0, 0 },
-  { string2, NULL, 1, 0 },
-  { string3, NULL, 0, 127 },
-  { string4, NULL, NIL, NIL },
-  { string5, sp_quote, 1, 1 },
-  { string6, sp_defun, 0, 127 },
-  { string7, sp_defvar, 2, 2 },
-  { string8, sp_setq, 2, 2 },
+  { string2, NULL, 0, 0 },
+  { string3, NULL, 0, 0 },
+  { string4, NULL, 0, 127 },
+  { string5, NULL, NIL, NIL },
+  { string6, sp_quote, 1, 1 },
+  { string7, sp_define, 2, 2 },
+  { string8, sp_set, 2, 2 },
   { string9, sp_if, 2, 3 },
   { string10, NULL, NIL, NIL },
   { string11, fn_not, 1, 1 },
@@ -487,7 +483,7 @@ const tbl_entry_t lookup_table[] PROGMEM = {
   { string13, fn_cons, 2, 2 },
   { string14, fn_atom, 1, 1 },
   { string15, fn_listp, 1, 1 },
-  { string16, fn_consp, 1, 1 },
+  { string16, fn_pairp, 1, 1 },
   { string17, fn_symbolp, 1, 1 },
   { string18, fn_eq, 2, 2 },
   { string19, fn_car, 1, 1 },
@@ -644,7 +640,7 @@ void pfl () {
 }
 
 void printobject(object *form){
-  if (form == NULL) pfstring(PSTR("nil"));
+  if (form == NULL) pfstring(PSTR("()"));
   else if (listp(form)) {
     pchar('(');
     printobject(car(form));
@@ -747,6 +743,7 @@ object *read() {
 void initenv() {
   GlobalEnv = NULL;
   tee = symbol(TEE);
+  nee = symbol(NEE);
 }
 
 void setup() {
@@ -754,7 +751,7 @@ void setup() {
   while (!Serial);  // wait for Serial to initialize
   initworkspace();
   initenv();
-  pfstring(PSTR("uLisp Zero 1.1")); pln();
+  pfstring(PSTR("uScheme ver 0 - experimental")); pln();
 }
 
 // Read/Evaluate/Print loop
