@@ -1,5 +1,7 @@
 #+TITLE: uScheme Zero
 
+*Active development moved to ([[https://codeberg.org/rsm/uscheme-zero]]).*
+
 Experimental micro Scheme interpreter for Arduino/AVR.
 
 *Based on* uLisp-Zero 1.1 by David Johnson-Davies ([[http://www.ulisp.com]]) on MIT License.
