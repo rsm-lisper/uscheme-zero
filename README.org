@@ -1,6 +1,6 @@
 #+TITLE: uScheme Zero
 
-*Active development moved to ([[https://codeberg.org/rsm/uscheme-zero]]).*
+*Active development moved to [[https://codeberg.org/rsm/uscheme-zero]].*
 
 Experimental micro Scheme interpreter for Arduino/AVR.
 
